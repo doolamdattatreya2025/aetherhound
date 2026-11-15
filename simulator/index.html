@@ -1,0 +1,282 @@
+<title>AetherHound</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: instrument-rack page. Header + status pill, scenario bar, two detector panels
+   (spectrum, waterfall, findings, controls), then evaluation log and method notes. */
+:root{
+  --bg:#edf0ee; --surface:#f8faf9; --ink:#16211f; --muted:#566763; --line:#cbd6d2;
+  --accent:#0a7c74; --accent-ink:#ffffff; --warn:#b4470d; --ok:#2b7a4b; --soft:#e2e9e6;
+  --scr:#0a1110; --scr-grid:#1e2d2a; --scr-trace:#7ee8da; --scr-base:#5f7c76; --scr-flag:#ff9a5c; --scr-band:rgba(69,207,192,.08); --scr-bandflag:rgba(255,154,92,.16);
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1413; --surface:#141e1c; --ink:#dfeae7; --muted:#93a8a3; --line:#27383a;
+  --accent:#45cfc0; --accent-ink:#06201d; --warn:#ff9a5c; --ok:#6fcf97; --soft:#1b2826; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1413; --surface:#141e1c; --ink:#dfeae7; --muted:#93a8a3; --line:#27383a;
+  --accent:#45cfc0; --accent-ink:#06201d; --warn:#ff9a5c; --ok:#6fcf97; --soft:#1b2826; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;
+  padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3,p{margin:0}
+.top{display:flex;gap:12px 24px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.eyebrow{font:500 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+h1{font:600 clamp(28px,6vw,40px)/1.05 var(--sans);letter-spacing:-.02em}
+.lede{color:var(--muted);max-width:60ch;margin-top:8px;text-wrap:pretty}
+.pill,.chip{display:inline-flex;align-items:center;gap:8px;font:500 12px/1 var(--mono);padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);white-space:nowrap}
+.pill::before,.chip::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted)}
+[data-state="clear"]::before,[data-state="on"]::before{background:var(--ok)}
+[data-state="alert"]{border-color:var(--warn);color:var(--warn)}
+[data-state="alert"]::before{background:var(--warn)}
+[data-state="cal"]::before{background:var(--accent)}
+.bar{display:flex;flex-wrap:wrap;gap:12px 24px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;align-items:center}
+.grp{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.grp>span.k{font:500 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.btn{font:500 13px/1 var(--sans);padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select{font:500 13px var(--sans);padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.chk{display:inline-flex;gap:6px;align-items:center;font-size:13px}
+input[type=checkbox],input[type=range]{accent-color:var(--accent)}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,500px),1fr))}
+.panel{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.phead{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;justify-content:space-between}
+.phead h2{font:600 17px/1.2 var(--sans)}
+.sub{font:400 12px var(--mono);color:var(--muted)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{padding:6px 10px;font-size:11px}
+.chips select{padding:4px 8px;font-size:11px;font-family:var(--mono);font-weight:400}
+canvas{display:block;width:100%;height:auto;border-radius:6px;background:var(--scr)}
+#ac-wf,#rf-wf{image-rendering:pixelated}
+.axis{display:flex;justify-content:space-between;font:400 11px var(--mono);color:var(--muted);margin-top:-4px}
+.metrics{display:flex;gap:8px 24px;flex-wrap:wrap;font:400 12px var(--mono);color:var(--muted)}
+.metrics b{font-weight:500;color:var(--ink)}
+.finds{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;min-height:38px}
+.finds li{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;padding:8px 10px;background:var(--bg);border-radius:8px;font:400 12px var(--mono)}
+.finds .f{font-weight:500;color:var(--ink)}
+.tag{padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.tag.k{border-color:var(--warn);color:var(--warn)}
+.finds .none{color:var(--muted);background:transparent;padding:8px 0}
+.ctrls{display:grid;gap:12px 16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));padding-top:10px;border-top:1px solid var(--line)}
+.ctl{display:grid;grid-template-columns:1fr auto;gap:2px 8px;min-width:0}
+.ctl label{font-size:12px;color:var(--muted)}
+.ctl output{font:500 12px var(--mono)}
+.ctl input{grid-column:1/-1;width:100%;margin:4px 0 0}
+.ctl select{grid-column:1/-1;width:100%;margin-top:4px}
+.sw{display:inline-flex;align-items:center;gap:8px;font-weight:500}
+.two{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}
+.card{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h3{font:600 15px/1.2 var(--sans);margin-bottom:10px}
+#log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font:400 12px/1.4 var(--mono)}
+#log li{display:flex;gap:10px}
+#log time{color:var(--muted);flex:none}
+#log .alert{color:var(--warn)} #log .warn{color:var(--warn)} #log .ok{color:var(--ok)}
+.method{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;color:var(--ink)}
+.method b{font-weight:600}
+.tech{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
+.tech dt{font:500 12px/1.5 var(--mono);color:var(--accent)}
+.tech dd{margin:0;color:var(--muted)}
+.note{margin-top:12px;color:var(--muted);font-size:12px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow">Virtual air-gap lab</p>
+      <h1>AetherHound</h1>
+      <p class="lede">A software-only detector for covert channels leaving an air-gapped room. It listens to a simulated microphone and a simulated RF receiver. Pick a technique for each emitter and see whether the detector catches it.</p>
+    </div>
+    <div id="overall" class="pill" data-state="cal">Calibrating 0%</div>
+  </header>
+
+  <section class="bar" aria-label="Lab controls">
+    <div class="grp" id="scn"><span class="k">Scenario</span>
+      <button class="btn" data-sc="quiet" aria-pressed="false">Quiet room</button>
+      <button class="btn" data-sc="acoustic" aria-pressed="true">Acoustic implant</button>
+      <button class="btn" data-sc="rf" aria-pressed="false">RF implant</button>
+      <button class="btn" data-sc="both" aria-pressed="false">Both channels</button>
+    </div>
+    <div class="grp"><span class="k">Run</span>
+      <button class="btn" id="pause">Pause</button>
+      <button class="btn" id="recal">Recalibrate</button>
+      <button class="btn" id="reset">Reset lab</button>
+      <select id="speed" aria-label="Simulation speed"><option value="1">1× speed</option><option value="2">2× speed</option><option value="4">4× speed</option></select>
+    </div>
+    <div class="grp"><span class="k">Stress</span>
+      <label class="chk"><input type="checkbox" id="imp">Broadband impulses</label>
+      <button class="btn" id="benign">Add benign steady tones</button>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="panel" aria-label="Acoustic channel">
+      <div class="phead"><h2>Acoustic channel</h2><span class="sub">Ultrasonic, fan and disk detectors</span></div>
+      <div class="chips"><span class="chip" id="ac-truth" data-state="off">Emitter off</span><span class="chip" id="ac-det" data-state="cal">Detector</span>
+        <select id="ac-view" aria-label="Spectrum view"><option value="full">View 0–24 kHz</option><option value="low">View 0–1.5 kHz</option><option value="mid">View 0–8 kHz</option></select></div>
+      <canvas id="ac-spec" width="720" height="150"></canvas>
+      <div class="axis" id="ac-axis"></div>
+      <canvas id="ac-wf" width="600" height="110"></canvas>
+      <div class="metrics"><span>Time to detect <b id="ac-lat">—</b></span><span>False alarms <b id="ac-fa">0</b></span><span>Impulses ignored <b id="ac-imp">0</b></span></div>
+      <ul class="finds" id="ac-finds"></ul>
+      <div class="ctrls">
+        <label class="sw"><input type="checkbox" id="ac-on">Covert emitter</label>
+        <div class="ctl"><label for="ac-type">Technique</label><select id="ac-type"><option value="us">Ultrasonic FSK</option><option value="fan">Fan speed</option><option value="disk">Disk seeks</option></select></div>
+        <div class="ctl"><label for="ac-lvl" id="ac-lvl-l">Tone level</label><output id="ac-lvl-o"></output><input type="range" id="ac-lvl" min="-64" max="-40" step="1" value="-54"></div>
+        <div class="ctl"><label for="ac-fc" id="ac-fc-l">Carrier centre</label><output id="ac-fc-o"></output><input type="range" id="ac-fc" min="17.5" max="22.5" step="0.1" value="19"></div>
+        <div class="ctl"><label for="ac-sym" id="ac-sym-l">Symbol length</label><output id="ac-sym-o"></output><input type="range" id="ac-sym" min="60" max="400" step="10" value="120"></div>
+        <div class="ctl"><label for="ac-noise">Room noise</label><output id="ac-noise-o"></output><input type="range" id="ac-noise" min="-52" max="-30" step="1" value="-42"></div>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="RF channel">
+      <div class="phead"><h2>RF channel</h2><span class="sub">0–200 MHz · 250 kHz bins</span></div>
+      <div class="chips"><span class="chip" id="rf-truth" data-state="off">Emitter off</span><span class="chip" id="rf-det" data-state="cal">Detector</span></div>
+      <canvas id="rf-spec" width="720" height="150"></canvas>
+      <div class="axis" id="rf-axis"></div>
+      <canvas id="rf-wf" width="600" height="110"></canvas>
+      <div class="metrics"><span>Time to detect <b id="rf-lat">—</b></span><span>False alarms <b id="rf-fa">0</b></span><span>Impulses ignored <b id="rf-imp">0</b></span></div>
+      <ul class="finds" id="rf-finds"></ul>
+      <div class="ctrls">
+        <label class="sw"><input type="checkbox" id="rf-on">Covert emitter</label>
+        <div class="ctl"><label for="rf-type">Technique</label><select id="rf-type"><option value="carrier">Keyed carrier</option><option value="video">Video-cable leakage</option></select></div>
+        <div class="ctl"><label for="rf-lvl">Emission level</label><output id="rf-lvl-o"></output><input type="range" id="rf-lvl" min="-104" max="-78" step="1" value="-88"></div>
+        <div class="ctl"><label for="rf-fc" id="rf-fc-l">Carrier</label><output id="rf-fc-o"></output><input type="range" id="rf-fc" min="20" max="190" step="0.25" value="71.5"></div>
+        <div class="ctl"><label for="rf-sym">Bit length</label><output id="rf-sym-o"></output><input type="range" id="rf-sym" min="60" max="400" step="10" value="160"></div>
+        <div class="ctl"><label for="rf-noise">Noise floor</label><output id="rf-noise-o"></output><input type="range" id="rf-noise" min="-108" max="-92" step="1" value="-100"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="two">
+    <section class="card">
+      <h3>Detector</h3>
+      <div class="ctl"><label for="thr">Sensitivity: dB above baseline</label><output id="thr-o"></output><input type="range" id="thr" min="5" max="15" step="1" value="9"></div>
+      <p class="note">Lower values catch weaker emitters and raise false alarms. Try 5 in a quiet room, then try a weak emitter at 12.</p>
+      <h3 style="margin-top:16px">Event log</h3>
+      <ul id="log"></ul>
+    </section>
+    <section class="card">
+      <h3>How it detects</h3>
+      <ol class="method">
+        <li><b>Baseline.</b> The first three seconds set a reference level for every frequency bin. Steady hum, fan tones and broadcast carriers become part of it.</li>
+        <li><b>Threshold.</b> A bin counts as active when it stays above its baseline by the sensitivity setting for two frames in a row.</li>
+        <li><b>Keying.</b> A bin that switches on and off several times in a short window is keyed. Steady new tones are listed but do not raise an alert. The fan detector uses a longer window because fans change speed slowly.</li>
+        <li><b>Pairing and linking.</b> Two keyed bins that take turns are reported as FSK. Several keyed bins that switch together are reported as linked lines, the pattern of a display cable's harmonics.</li>
+        <li><b>Burst watch.</b> Disk seeks are not narrowband. A separate detector tracks total energy in 1.5–6 kHz and counts bursts.</li>
+        <li><b>Impulse rejection.</b> If a quarter of all bins jump at once, the frame is treated as a click and held at its previous state.</li>
+      </ol>
+      <h3 style="margin:16px 0 10px">Techniques simulated</h3>
+      <dl class="tech">
+        <dt>Ultrasonic FSK</dt><dd>Two tones near 19 kHz, above most adult hearing.</dd>
+        <dt>Fan speed</dt><dd>A fan tone that shifts between two speeds 160 Hz apart. Slow, a few bits per second.</dd>
+        <dt>Disk seeks</dt><dd>Short mechanical bursts in 1.5–6 kHz. A burst is a 1, silence is a 0.</dd>
+        <dt>Keyed carrier</dt><dd>One narrow RF line switched on and off.</dd>
+        <dt>Video cable</dt><dd>Three lines 25 MHz apart that switch together, like pixel-clock harmonics.</dd>
+      </dl>
+      <p class="note">Signals here are synthetic and simplified. Thresholds need retuning against real microphone and SDR captures. A channel already running during calibration enters the baseline and can be missed; use Recalibrate to try it.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id);
+const FS=48000,N=2048,HOP=1024,NB=N/2,DT=HOP/FS,CAL=140,BINHZ=FS/N;
+const RB=800,RHZ=250000,TWO_PI=Math.PI*2;
+const css=getComputedStyle(document.documentElement);
+const C={scr:css.getPropertyValue('--scr').trim()||'#0a1110',grid:css.getPropertyValue('--scr-grid').trim()||'#1e2d2a',
+  trace:css.getPropertyValue('--scr-trace').trim()||'#7ee8da',base:css.getPropertyValue('--scr-base').trim()||'#5f7c76',
+  flag:css.getPropertyValue('--scr-flag').trim()||'#ff9a5c',band:css.getPropertyValue('--scr-band').trim()||'rgba(69,207,192,.08)',
+  bandFlag:css.getPropertyValue('--scr-bandflag').trim()||'rgba(255,154,92,.16)'};
+
+/* ---------- FFT ---------- */
+const rev=new Uint16Array(N),cosT=new Float64Array(N/2),sinT=new Float64Array(N/2),win=new Float64Array(N);
+for(let i=0;i<N;i++){let r=0,x=i;for(let b=0;b<11;b++){r=(r<<1)|(x&1);x>>=1}rev[i]=r;win[i]=0.5-0.5*Math.cos(TWO_PI*i/N)}
+for(let i=0;i<N/2;i++){cosT[i]=Math.cos(TWO_PI*i/N);sinT[i]=-Math.sin(TWO_PI*i/N)}
+const re=new Float64Array(N),im=new Float64Array(N);
+function fft(){
+  for(let size=2;size<=N;size<<=1){const half=size>>1,step=N/size;
+    for(let i=0;i<N;i+=size){for(let j=0,k=0;j<half;j++,k+=step){
+      const a=i+j,b=a+half,tr=re[b]*cosT[k]-im[b]*sinT[k],ti=re[b]*sinT[k]+im[b]*cosT[k];
+      re[b]=re[a]-tr;im[b]=im[a]-ti;re[a]+=tr;im[a]+=ti}}}
+}
+function g(){const u=1-Math.random(),v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(TWO_PI*v)}
+
+/* ---------- Narrowband detector (per-bin keying) ---------- */
+class Det{
+  constructor(n,lo,hi,gap,unit,fmt,W,minTr){
+    this.n=n;this.lo=lo;this.hi=hi;this.gap=gap;this.unit=unit;this.fmt=fmt;this.W=W;this.minTr=minTr;
+    const m=hi-lo;this.m=m;this.holdMin=Math.round(W/12);this.missMax=Math.round(W/4);
+    this.mean=new Float32Array(n);this.ring=new Uint8Array(m*W);this.cur=new Uint8Array(m);
+    this.prevRaw=new Uint8Array(m);this.prevFlag=new Uint8Array(m);this.onCnt=new Uint16Array(m);
+    this.exOn=new Float32Array(m);this.excess=new Float32Array(m);this.cls=new Uint8Array(m);this.reset()}
+  reset(){this.mean.fill(0);this.ring.fill(0);this.prevRaw.fill(0);this.prevFlag.fill(0);this.onCnt.fill(0);this.exOn.fill(0);this.cls.fill(0);
+    this.cnt=0;this.frame=0;this.clusters=[];this.keyed=0;this.hold=0;this.miss=0;this.alert=false;this.raised=false;this.cleared=false;this.impulses=0;this.broad=false;this.guard=0}
+  step(db,thr){
+    this.raised=false;this.cleared=false;this.broad=false;
+    const lo=this.lo,m=this.m,W=this.W;
+    if(this.cnt<CAL){const c=this.cnt+1;for(let i=0;i<m;i++){const k=lo+i;this.mean[k]+=(db[k]-this.mean[k])/c}this.cnt++;return}
+    let raw=0;
+    for(let i=0;i<m;i++){const e=db[lo+i]-this.mean[lo+i];this.excess[i]=e;const r=e>thr?1:0;this.cur[i]=r;
+      if(this.onCnt[i]<=W*0.85)raw+=r}
+    /* A click lands in two overlapping frames and the second can be too weak to notice,
+       so the frame after a broad one is held as well. Steady tones are left out of the count. */
+    const hard=raw>0.25*m,broad=hard||this.guard>0,head=this.frame%W;
+    this.guard=hard?1:0;
+    this.broad=broad;
+    for(let i=0;i<m;i++){
+      let f;
+      if(broad){f=this.prevFlag[i]}
+      else{
+        f=this.cur[i]&this.prevRaw[i];
+        if(!this.cur[i]){const k=lo+i;this.mean[k]+=(db[k]-this.mean[k])*0.003}
+        if(f){const e=this.excess[i];this.exOn[i]=this.exOn[i]>0?this.exOn[i]*0.7+e*0.3:e}
+        this.prevRaw[i]=this.cur[i];
+      }
+      const idx=i*W+head,old=this.ring[idx];this.ring[idx]=f;this.onCnt[i]+=f-old;this.prevFlag[i]=f;
+    }
+    if(broad)this.impulses++;
+    this.frame++;
+    if(this.frame%3===0)this.analyse();
+  }
+  analyse(){
+    const W=this.W,m=this.m,oldest=this.frame%W,ring=this.ring;
+    for(let i=0;i<m;i++){
+      const on=this.onCnt[i];
+      if(on<8){this.cls[i]=0;continue}
+      const b=i*W;let tr=0,prev=ring[b+oldest];
+      for(let j=1;j<W;j++){const v=ring[b+(oldest+j)%W];if(v!==prev){tr++;prev=v}}
+      this.cls[i]=tr>=this.minTr?2:(on>=W*0.35&&tr<=2?1:0);
+    }
+    const cl=[];let i=0;
+    while(i<m){
+      if(!this.cls[i]){i++;continue}
+      let last=i,j=i+1,peak=i,kind=this.cls[i],steady=this.cls[i]===1;
+      while(j<m&&j-last<=this.gap+1){if(this.cls[j]){last=j;if(this.cls[j]>kind)kind=this.cls[j];if(this.cls[j]===1)steady=true;if(this.exOn[j]>this.exOn[peak])peak=j}j++}
+      /* Bins at the edge of a steady tone hover near the threshold and flicker.
+         A cluster that contains a steady bin is a steady tone, not data. */
+      if(steady)kind=1;
+      cl.push({peak,kind,label:kind===2?'keyed':'steady',linked:0});i=last+1;
+    }
+    const keyed=cl.filter(c=>c.kind===2);
+    for(let a=0;a<keyed.length&&a<4;a++)for(let b=a+1;b<keyed.length&&b<4;b++){
+      let both=0,either=0;const ia=keyed[a].peak*W,ib=keyed[b].peak*W;
+      for(let j=0;j<W;j++){const x=ring[ia+j],y=ring[ib+j];both+=x&y;either+=x|y}
+      if(either<=10)continue;
+      const r=both/either;
+      if(r<0.2){keyed[a].label='FSK';keyed[b].label='FSK'}
+      else if(r>0.75){keyed[a].linked++;keyed[b].linked++}
+    }
+    for(const c of cl){
+      c.freq=(this.lo+c.peak)*this.unit;c.duty=this.onCnt[c.peak]/W;c.snr=this.exOn[c.peak];
+      c.where=this.fmt(c.freq);c.key=c.kind===2;
+      c.short=c.label==='FSK'?'FSK':'keyed'+(c.linked?' (×'+(c.linked+1)+' linked)':'');
+ q
