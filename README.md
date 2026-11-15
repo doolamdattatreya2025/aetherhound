@@ -1,4 +1,4 @@
-# AetherHound: Air-Gapped RF & Acoustic Covert Channel Detector
+hi# AetherHound: Air-Gapped RF & Acoustic Covert Channel Detector
 
 Internship project at Infotact Solutions (Cyber Security, Security Admin Associate L1).
 Author: Doolam Dattatreya
@@ -60,8 +60,8 @@ aetherhound/
 ## Status
 
 - [x] Repository created
-- [ ] Threat model
-- [ ] Simulator
+- [x] Threat model
+- [x] Simulator
 - [ ] Detectors
 - [ ] Evaluation
 - [ ] Report and presentation
