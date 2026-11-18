@@ -62,7 +62,7 @@ aetherhound/
 - [x] Repository created
 - [x] Threat model
 - [x] Simulator
-- [ ] Detectors
+- [x] Detectors
 - [ ] Evaluation
 - [ ] Report and presentation
 
