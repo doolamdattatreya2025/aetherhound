@@ -41,6 +41,14 @@ def random_bits(count, rng):
     return rng.integers(0, 2, size=count)
 
 
+def _bits_for(bits, count, rng):
+    """Use the bits the attacker gave us (padded with zeros), or make random ones."""
+    if bits is None:
+        return random_bits(count, rng)
+    bits = np.asarray(bits, dtype=int)
+    return np.concatenate([bits, np.zeros(max(0, count - len(bits)), dtype=int)])
+
+
 def _hold(bits, sym_samples, n):
     """Repeat each bit for one symbol and cut the result to n samples."""
     return np.repeat(bits, sym_samples)[:n]
@@ -65,18 +73,18 @@ def room_noise(seconds, noise_dbfs=-42, rng=None):
 
 
 # ---- acoustic emitters -----------------------------------------------------
-def ultrasonic_fsk(seconds, level_dbfs=-54, fc=19_000, sym_ms=120, rng=None):
+def ultrasonic_fsk(seconds, level_dbfs=-54, fc=19_000, sym_ms=120, rng=None, bits=None):
     """Two tones 500 Hz apart around fc. A 1 is the higher tone, a 0 the lower."""
     rng = rng or np.random.default_rng()
     n = int(seconds * FS)
     sym = int(sym_ms / 1000 * FS)
-    bits = random_bits(n // sym + 1, rng)
+    bits = _bits_for(bits, n // sym + 1, rng)
     freq = fc + np.where(_hold(bits, sym, n) == 1, 250, -250)
     phase = 2 * np.pi * np.cumsum(freq) / FS
     return db_to_amp(level_dbfs) * np.sin(phase), bits
 
 
-def fan_speed(seconds, level_dbfs=-42, fc=520, sym_ms=400, rng=None):
+def fan_speed(seconds, level_dbfs=-42, fc=520, sym_ms=400, rng=None, bits=None):
     """A fan tone that moves between two speeds, 160 Hz apart.
 
     A real fan cannot jump between speeds, so the tone glides with a time
@@ -85,7 +93,7 @@ def fan_speed(seconds, level_dbfs=-42, fc=520, sym_ms=400, rng=None):
     rng = rng or np.random.default_rng()
     n = int(seconds * FS)
     sym = int(sym_ms / 1000 * FS)
-    bits = random_bits(n // sym + 1, rng)
+    bits = _bits_for(bits, n // sym + 1, rng)
     target = fc + np.where(_hold(bits, sym, n) == 1, 80, -80)
     alpha = 1 / (0.06 * FS)
     freq, _ = lfilter([alpha], [1, -(1 - alpha)], target, zi=[(1 - alpha) * fc])
@@ -93,7 +101,7 @@ def fan_speed(seconds, level_dbfs=-42, fc=520, sym_ms=400, rng=None):
     return db_to_amp(level_dbfs) * np.sin(phase), bits
 
 
-def disk_seeks(seconds, level_dbfs=-52, sym_ms=300, rng=None):
+def disk_seeks(seconds, level_dbfs=-52, sym_ms=300, rng=None, bits=None):
     """Seek noise from a hard disk. A burst is a 1, silence is a 0.
 
     Each burst is 40 ms of noise with a smooth start and end, passed through a
@@ -103,7 +111,7 @@ def disk_seeks(seconds, level_dbfs=-52, sym_ms=300, rng=None):
     n = int(seconds * FS)
     sym = int(sym_ms / 1000 * FS)
     burst = int(0.040 * FS)
-    bits = random_bits(n // sym + 1, rng)
+    bits = _bits_for(bits, n // sym + 1, rng)
     excite = np.zeros(n)
     envelope = np.sin(np.pi * np.arange(burst) / burst)
     for slot, bit in enumerate(bits):
@@ -175,7 +183,7 @@ def rf_background(frames, noise_dbm=-100, rng=None):
     return power
 
 
-def add_rf_emitter(power, technique, fc_mhz, level_dbm=-88, bit_ms=160, rng=None):
+def add_rf_emitter(power, technique, fc_mhz, level_dbm=-88, bit_ms=160, rng=None, bits=None):
     """Switch an RF emitter on and off by data bit. Returns the bits sent.
 
     "carrier": one line at fc_mhz.
@@ -185,7 +193,7 @@ def add_rf_emitter(power, technique, fc_mhz, level_dbm=-88, bit_ms=160, rng=None
     rng = rng or np.random.default_rng()
     frames = power.shape[0]
     slot = (np.arange(frames) * FRAME_S / (bit_ms / 1000)).astype(int)
-    bits = random_bits(slot.max() + 1, rng)
+    bits = _bits_for(bits, slot.max() + 1, rng)
     on = bits[slot] == 1
     lines = [(0, 0)] if technique == "carrier" else [(0, 0), (100, -1), (200, -2)]
     k0 = round(fc_mhz * 1e6 / RF_BIN_HZ)
