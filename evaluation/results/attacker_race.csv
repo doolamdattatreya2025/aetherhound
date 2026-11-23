@@ -1,0 +1,6 @@
+technique,trials,detected_rate,mean_alert_delay_s,secret_bits_leaked_before_alert_pct,full_transmission_s
+ultrasonic,10,1.0,0.81,0.0,20.2
+fan,10,1.0,1.75,0.0,67.2
+disk,10,1.0,2.15,0.0,50.4
+carrier,10,1.0,0.98,0.0,26.9
+video,10,1.0,0.93,0.0,26.9
