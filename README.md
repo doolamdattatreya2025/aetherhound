@@ -1,4 +1,4 @@
-hi# AetherHound: Air-Gapped RF & Acoustic Covert Channel Detector
+# AetherHound: Air-Gapped RF & Acoustic Covert Channel Detector
 
 Internship project at Infotact Solutions (Cyber Security, Security Admin Associate L1).
 Author: Doolam Dattatreya
@@ -36,35 +36,62 @@ No hardware is needed. Everything runs in a virtual environment.
 5. **Burst watch.** Total energy in the disk-noise band is tracked, and bursts are counted.
 6. **Impulse rejection.** Broadband clicks that raise most bins at once are ignored.
 
-## Planned structure
+## Repository structure
 
 ```
 aetherhound/
   README.md
-  simulator/      browser-based lab (HTML and JavaScript)
-  src/            Python signal generators and detectors
+  requirements.txt
+  simulator/      browser-based lab (index.html, no install needed)
+  src/            signals.py (room and emitters), detector.py, attacker.py
   tests/          unit tests
-  evaluation/     sweep scripts, result tables, plots
+  evaluation/     sweep scripts and results (CSV tables and PNG plots)
   docs/           threat model, architecture, report
 ```
+
+## How to run
+
+```
+pip install -r requirements.txt
+python src/signals.py                          # check the signal generators
+python src/detector.py                         # demo: detect all five channels
+python src/attacker.py                         # demo: send a secret and read it back
+python -m unittest discover -s tests -v        # run all tests
+python evaluation/run_evaluation.py --quick    # detector evaluation (fast)
+python evaluation/run_attacker_eval.py --quick # attacker evaluation (fast)
+```
+
+To use the browser simulator, open `simulator/index.html` in a browser.
 
 ## Project plan
 
 | Week | Focus |
 |---|---|
-| 1 | Threat model, repository setup, simulator with the first channels |
-| 2 | All five channels and their detectors |
-| 3 | Evaluation: detection rate and false alarms across levels and noise |
-| 4 | Attacker-side data rate and error rate, hardening, report, presentation, demo |
+| 1 | Threat model, repository setup, simulator, signal generators, detectors, tests, first evaluation |
+| 2 | Attacker side (sender and receiver), attacker evaluation, terminal dashboard with live spectrum waterfall |
+| 3 | Learned baseline (autoencoder trained on normal room sound), alerting logic, tuning |
+| 4 | Detection log files, hardening and evasion tests, report, presentation, demo |
 
 ## Status
 
 - [x] Repository created
 - [x] Threat model
-- [x] Simulator
+- [x] Simulator (browser)
+- [x] Signal generators for five covert channels
 - [x] Detectors
-- [ ] Evaluation
+- [x] Evaluation of detection rate and false alarms
+- [x] Attacker sender and receiver, with data rate and bit error rate
+- [ ] Terminal dashboard with live spectrum waterfall
+- [ ] Learned baseline (autoencoder)
+- [ ] Detection log files
+- [ ] Hardening and evasion tests
 - [ ] Report and presentation
+
+## Simulation note
+
+The project brief describes an SDR and ultrasonic microphones. This version replaces the
+hardware with simulated room signals so that it runs anywhere with no hardware. The detector
+works on spectrum frames, so the same detector design applies to real recordings.
 
 ## Limitations
 
