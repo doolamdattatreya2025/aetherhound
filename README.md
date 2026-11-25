@@ -56,6 +56,8 @@ pip install -r requirements.txt
 python src/signals.py                          # check the signal generators
 python src/detector.py                         # demo: detect all five channels
 python src/attacker.py                         # demo: send a secret and read it back
+python src/dashboard.py --channel fan          # live terminal dashboard (Ctrl+C to quit)
+python src/dashboard.py --bench                # check the display speed (30+ fps goal)
 python -m unittest discover -s tests -v        # run all tests
 python evaluation/run_evaluation.py --quick    # detector evaluation (fast)
 python evaluation/run_attacker_eval.py --quick # attacker evaluation (fast)
@@ -68,7 +70,7 @@ To use the browser simulator, open `simulator/index.html` in a browser.
 | Week | Focus |
 |---|---|
 | 1 | Threat model, repository setup, simulator, signal generators, detectors, tests, first evaluation |
-| 2 | Attacker side (sender and receiver), attacker evaluation, terminal dashboard with live spectrum waterfall |
+| 2 | Attacker side (sender and receiver), attacker evaluation, terminal dashboard with live spectrum waterfall, detection log |
 | 3 | Learned baseline (autoencoder trained on normal room sound), alerting logic, tuning |
 | 4 | Detection log files, hardening and evasion tests, report, presentation, demo |
 
@@ -81,9 +83,9 @@ To use the browser simulator, open `simulator/index.html` in a browser.
 - [x] Detectors
 - [x] Evaluation of detection rate and false alarms
 - [x] Attacker sender and receiver, with data rate and bit error rate
-- [ ] Terminal dashboard with live spectrum waterfall
+- [x] Terminal dashboard with live spectrum waterfall and red alert banner
 - [ ] Learned baseline (autoencoder)
-- [ ] Detection log files
+- [x] Detection log files (`python src/dashboard.py --log detections.log`)
 - [ ] Hardening and evasion tests
 - [ ] Report and presentation
 

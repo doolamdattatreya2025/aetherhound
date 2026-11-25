@@ -270,37 +270,58 @@ def _describe(det):
     return ", ".join(f"{c['where']} {c['short']}" for c in det.clusters if c["key"])
 
 
+def step_detectors(detectors, db, thr, t, burst_hold_from=None):
+    """Feed one frame to every detector. t is the time in seconds at the end of the frame.
+
+    Returns the events (alerts raised or cleared) this frame caused. A live display
+    calls this once per frame; _run below calls it for a whole recording.
+    """
+    events = []
+    for det in detectors:
+        if isinstance(det, BurstDetector):
+            det.step(db, thr, hold=burst_hold_from.broad if burst_hold_from else False)
+        else:
+            det.step(db, thr)
+        if det.raised:
+            events.append(Event(t, det.name, "raised", _describe(det)))
+        if det.cleared:
+            events.append(Event(t, det.name, "cleared", ""))
+    return events
+
+
 def _run(detectors, frames, thr, burst_hold_from=None):
     events = []
     for i, db in enumerate(frames):
-        for det in detectors:
-            if isinstance(det, BurstDetector):
-                det.step(db, thr, hold=burst_hold_from.broad if burst_hold_from else False)
-            else:
-                det.step(db, thr)
-            t = (i + 1) * FRAME_S
-            if det.raised:
-                events.append(Event(t, det.name, "raised", _describe(det)))
-            if det.cleared:
-                events.append(Event(t, det.name, "cleared", ""))
+        events += step_detectors(detectors, db, thr, (i + 1) * FRAME_S, burst_hold_from)
     return events, detectors
 
 
-def monitor_acoustic(frames, thr=9.0):
-    """Run the ultrasonic, fan and disk detectors over acoustic frames."""
+def make_acoustic_detectors():
+    """The ultrasonic, fan and disk detectors. Returns (detectors, ultrasonic)."""
     ultrasonic = NarrowbandDetector("Ultrasonic", math.ceil(16_000 / BIN_HZ), math.floor(23_500 / BIN_HZ),
                                     BIN_HZ, fmt_khz, gap=2, window=96)
     fan = NarrowbandDetector("Fan-speed", math.ceil(250 / BIN_HZ), math.floor(1_200 / BIN_HZ),
                              BIN_HZ, fmt_hz, gap=1, window=192)
     disk = BurstDetector("Disk-seek", math.ceil(1_500 / BIN_HZ), math.floor(6_000 / BIN_HZ),
                          window=192, where="1.5-6 kHz band")
-    return _run([ultrasonic, fan, disk], frames, thr, burst_hold_from=ultrasonic)
+    return [ultrasonic, fan, disk], ultrasonic
+
+
+def make_rf_detectors():
+    """The RF detector. Returns (detectors, None)."""
+    return [NarrowbandDetector("RF", 4, RF_BINS, RF_BIN_HZ, fmt_mhz, gap=1, window=96)], None
+
+
+def monitor_acoustic(frames, thr=9.0):
+    """Run the ultrasonic, fan and disk detectors over acoustic frames."""
+    detectors, ultrasonic = make_acoustic_detectors()
+    return _run(detectors, frames, thr, burst_hold_from=ultrasonic)
 
 
 def monitor_rf(frames, thr=9.0):
     """Run the RF detector over RF frames."""
-    rf = NarrowbandDetector("RF", 4, RF_BINS, RF_BIN_HZ, fmt_mhz, gap=1, window=96)
-    return _run([rf], frames, thr)
+    detectors, _ = make_rf_detectors()
+    return _run(detectors, frames, thr)
 
 
 if __name__ == "__main__":
